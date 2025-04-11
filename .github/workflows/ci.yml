@@ -1,0 +1,62 @@
+name: CI Test
+
+on:
+  push:
+    branches: [ "*" ]  # Triggers on push to any branch
+  pull_request:
+    branches: [ "*" ]  # Triggers on PR to any branch
+
+jobs:
+  laravel-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_DB: hng
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: dom, gd, intl, mbstring, xml, xsl, zip, curl, pdo_pgsql, bcmath
+        coverage: none
+
+    - name: Install additional system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpq-dev libpng-dev libicu-dev libxslt-dev zlib1g-dev libzip-dev
+
+    - name: Configure environment
+      run: |
+        cp .env.example .env
+        echo "DB_CONNECTION=pgsql" >> .env
+        echo "DB_HOST=localhost" >> .env
+        echo "DB_PORT=5432" >> .env
+        echo "DB_DATABASE=hng" >> .env
+        echo "DB_USERNAME=user" >> .env
+        echo "DB_PASSWORD=password" >> .env
+
+    - name: Install Composer dependencies
+      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+    - name: Generate app key
+      run: php artisan key:generate
+
+    - name: Run migrations
+      run: php artisan migrate --force
+
+    # - name: Run tests
+    #   run: php artisan test

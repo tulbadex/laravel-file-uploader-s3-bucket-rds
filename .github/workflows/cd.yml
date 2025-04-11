@@ -1,0 +1,29 @@
+name: Deployment
+
+on:
+  workflow_run:
+    workflows: ["CI Test"] # 🧪 This must match the name of your CI workflow
+    types:
+      - completed
+
+jobs:
+  deployment:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: reconcile
+    timeout-minutes: 10
+
+    steps:
+      - name: Deploy to the server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_SERVER }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            if [[ "${{ github.event.workflow_run.head_branch }}" == "master" ]]; then
+              echo "Starting Laravel deployment for production..."
+              bash /usr/local/bin/main.sh
+              echo "✅ Master Processor started successfully."
+            else
+              echo "Branch not found"
+              
